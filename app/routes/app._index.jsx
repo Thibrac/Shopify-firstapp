@@ -106,11 +106,7 @@ export default function Index() {
 
   return (
     <Page>
-      <TitleBar title="Remix app template">
-        <button variant="primary" onClick={generateProduct}>
-          Generate a product
-        </button>
-      </TitleBar>
+      <TitleBar title="Raffle Shopify app" />
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>

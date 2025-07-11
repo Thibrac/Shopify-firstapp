@@ -3,7 +3,7 @@
 client_id = "848252c433f59166752563c1785b2c41"
 name = "raffle-app"
 handle = "raffle-app-11"
-application_url = "https://shops-partner-equation-implementing.trycloudflare.com"
+application_url = "https://playlist-bargain-update-sheer.trycloudflare.com"
 embedded = true
 
 [build]
@@ -23,10 +23,10 @@ api_version = "2025-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_products,read_products,read_metaobjects,write_metaobjects"
 
 [auth]
-redirect_urls = ["https://shops-partner-equation-implementing.trycloudflare.com/auth/callback", "https://shops-partner-equation-implementing.trycloudflare.com/auth/shopify/callback", "https://shops-partner-equation-implementing.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://playlist-bargain-update-sheer.trycloudflare.com/auth/callback", "https://playlist-bargain-update-sheer.trycloudflare.com/auth/shopify/callback", "https://playlist-bargain-update-sheer.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
