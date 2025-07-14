@@ -1,21 +1,20 @@
 import { Page, Layout, Card, Text, BlockStack, Button, Thumbnail, ResourceList, ResourceItem } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
-import { authenticate } from "../shopify.server"; // chemin relatif pour shopify.server
+import { useLoaderData, Link, useNavigate } from "@remix-run/react";
+import { authenticate } from "../shopify.server";
+import { useState, useEffect } from "react";
 
-// LOADER pour charger les données des tombolas existantes depuis Shopify Metaobjects
 export const loader = async ({ request }) => {
 	const { admin } = await authenticate.admin(request);
 
 	const response = await admin.graphql(
 		`#graphql
 query getRaffleProducts {
-  metaobjects(type: "raffle_product", first: 100) { # Le type "raffle_product" est correct ici
+  metaobjects(type: "raffle_product", first: 100) {
     edges {
       node {
         id
-        # Utilisation d'alias et des clés EXACTES de ton admin Shopify
         raffleProductIdField: field(key: "raffle_product.product_id") {
           value
         }
@@ -59,13 +58,23 @@ query getRaffleProducts {
 
 export default function RafflesPage() {
 	const { raffles } = useLoaderData();
+	const [isClient, setIsClient] = useState(false);
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		setIsClient(true);
+	}, []);
+
+	const handleCreateRaffleClick = () => {
+		navigate("/app/raffles/new");
+	};
 
 	return (
 		<Page>
-			<TitleBar title="Gérer mes Tombolas">
-				<Link to="/app/raffles/new"> {/* Cette route n'existe pas encore, nous la créerons après */}
-					<Button primary>Create a new raffle</Button>
-				</Link>
+
+			<TitleBar
+				title="Manage my raffles"
+			>
 			</TitleBar>
 
 			<Layout>
@@ -75,6 +84,13 @@ export default function RafflesPage() {
 							<Text as="h2" variant="headingMd">
 								Products configured in raffle ({raffles.length})
 							</Text>
+							<button
+								type="button"
+								className="Polaris-Button Polaris-Button--primary Polaris-Button--pressable Polaris-Button--sizeMedium Polaris-Button--textAlignCenter"
+								onClick={handleCreateRaffleClick}
+							>
+								<span className="Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium">Create a new raffle</span>
+							</button>
 							{raffles.length === 0 ? (
 								<Text as="p" variant="bodyMd">
 									No raffle configured yet. Click on "Create a new raffle" to start.
@@ -85,7 +101,7 @@ export default function RafflesPage() {
 									items={raffles}
 									renderItem={(item) => {
 										const { id, title, productId, productHandle, quantityAvailable, deadline, isActive } = item;
-										const productShopifyId = productId.split('/').pop(); // Extraire l'ID numérique du GID
+										const productShopifyId = productId.split('/').pop();
 
 										return (
 											<ResourceItem

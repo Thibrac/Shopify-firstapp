@@ -61,6 +61,9 @@ export default defineConfig({
         v3_singleFetch: false,
         v3_routeConfig: true,
       },
+      ssr: {
+        noExternal: ["@prisma/client"],
+      },
     }),
     tsconfigPaths(),
   ],
