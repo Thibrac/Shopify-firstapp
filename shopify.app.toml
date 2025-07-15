@@ -3,7 +3,7 @@
 client_id = "848252c433f59166752563c1785b2c41"
 name = "raffle-app"
 handle = "raffle-app-11"
-application_url = "https://vice-persistent-strange-salary.trycloudflare.com"
+application_url = "https://urge-cradle-couples-newman.trycloudflare.com"
 embedded = true
 
 [build]
@@ -26,7 +26,7 @@ api_version = "2025-07"
 scopes = "read_metaobjects,read_products,write_metaobjects,write_products"
 
 [auth]
-redirect_urls = ["https://vice-persistent-strange-salary.trycloudflare.com/auth/callback", "https://vice-persistent-strange-salary.trycloudflare.com/auth/shopify/callback", "https://vice-persistent-strange-salary.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://urge-cradle-couples-newman.trycloudflare.com/auth/callback", "https://urge-cradle-couples-newman.trycloudflare.com/auth/shopify/callback", "https://urge-cradle-couples-newman.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

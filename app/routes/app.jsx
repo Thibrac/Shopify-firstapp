@@ -23,6 +23,7 @@ export default function App() {
           Home
         </Link>
         <Link to="/app/raffles">Raffles</Link>
+        <Link to="/app/test">Page de Test</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

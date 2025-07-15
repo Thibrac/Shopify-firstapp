@@ -60,7 +60,7 @@ export const action = async ({ request }) => {
 		}`
 			, {
 				variables: {
-					query: `title:${searchTerm}* OR tag:${searchTerm}* OR product_type:${searchTerm}*` // Recherche flexible
+					query: `title:${searchTerm}* OR tag:${searchTerm}* OR product_type:${searchTerm}*`
 				}
 			}
 		);
@@ -84,7 +84,7 @@ export const action = async ({ request }) => {
 		try {
 			const response = await admin.graphql(
 				`#graphql
-		  mutation createRaffleProduct($metaobject: MetaobjectInput!) {
+		  mutation createRaffleProduct($metaobject: MetaobjectCreateInput!) {
 			metaobjectCreate(metaobject: $metaobject) {
 			  metaobject {
 				id
@@ -126,7 +126,7 @@ export const action = async ({ request }) => {
 			return redirect("/app/raffles");
 		} catch (error) {
 			console.error("Error creating raffle product:", error);
-			return json({ errors: { general: "Une erreur inattendue est survenue lors de la création de la tombola." } }, { status: 500 });
+			return json({ errors: { general: "An unexpected error occurred while creating the raffle." } }, { status: 500 });
 		}
 	}
 
@@ -196,14 +196,10 @@ export default function CreateRafflePage() {
 		[]
 	);
 
+
 	return (
 		<Page>
-			<TitleBar title="Create a new raffle"
-				primaryAction={{
-					content: "Create a new raffle",
-					url: "/app/raffles/new",
-				}}
-			/>
+			<TitleBar title="Create a new raffle" />
 			<Layout>
 				<Layout.Section>
 					<Card>
@@ -212,7 +208,7 @@ export default function CreateRafflePage() {
 								1. Select a Shopify product
 							</Text>
 							<TextField
-								label="Search a product"
+								label="Search for a product"
 								value={searchTerm}
 								onChange={handleSearch}
 								autoComplete="off"
@@ -224,7 +220,7 @@ export default function CreateRafflePage() {
 								}}
 							/>
 							{searchFetcher.state === "loading" ? (
-								<Text>Loading products...</Text>
+								<Text>Chargement des produits...</Text>
 							) : searchResults.length > 0 ? (
 								<List type="bullet">
 									{searchResults.map((product) => (
@@ -250,7 +246,7 @@ export default function CreateRafflePage() {
 															{product.title}
 														</Text>
 														<Text as="span" variant="bodySm" color="subdued">
-															{product.variants.edges[0]?.node?.price ? `Price: ${product.variants.edges[0].node.price.amount} ${product.variants.edges[0].node.price.currencyCode}` : "No price"}
+															{product.variants.edges[0]?.node?.price ? `Prix: ${product.variants.edges[0].node.price.amount} ${product.variants.edges[0].node.price.currencyCode}` : "Pas de prix"}
 														</Text>
 													</BlockStack>
 												</InlineStack>
@@ -267,7 +263,7 @@ export default function CreateRafflePage() {
 							{selectedProduct && (
 								<BlockStack gap="100">
 									<Text as="p" variant="bodyMd" fontWeight="bold">
-										Selected product : {selectedProduct.title}
+										Selected product: {selectedProduct.title}
 									</Text>
 									<Text as="p" variant="bodySm">
 										ID: {selectedProduct.id}
@@ -293,7 +289,7 @@ export default function CreateRafflePage() {
 								error={formErrors.quantityAvailable}
 							/>
 
-							<Text as="h3" variant="headingSm">Deadline</Text>
+							<Text as="h3" variant="headingSm">Registration deadline</Text>
 							<DatePicker
 								month={month}
 								year={year}
