@@ -14,7 +14,7 @@ import { authenticate } from "../shopify.server";
 import { useState, useEffect } from "react";
 
 export const loader = async ({ request }) => {
-	const { admin } = await authenticate.admin(request);
+	const { admin, session } = await authenticate.admin(request);
 
 	const response = await admin.graphql(
 		`#graphql
@@ -26,7 +26,7 @@ export const loader = async ({ request }) => {
 			  raffleProductIdField: field(key: "product_id") {
 				value
 			  }
-			  raffleProductTitleField: field(key: "product_title") {
+			  raffleProductTitleField: field(key: "title") {
 				value
 			  }
 			  raffleQuantityAvailableField: field(key: "quantity_available") {
@@ -59,14 +59,14 @@ export const loader = async ({ request }) => {
 		};
 	});
 
-	return json({ raffles: metaobjects });
+	return json({ raffles: metaobjects, shop: session.shop });
 };
 
 export default function RafflesPage() {
-	const { raffles } = useLoaderData();
+	const { raffles, shop } = useLoaderData();
 	const navigate = useNavigate();
 	const [isClient, setIsClient] = useState(false);
-
+	const storeName = shop.replace(".myshopify.com", "");
 	useEffect(() => {
 		setIsClient(true);
 	}, []);
@@ -127,7 +127,7 @@ export default function RafflesPage() {
 												</div>
 												<div>Status: {isActive ? "Active" : "Inactive"}</div>
 												<Link
-													url={`shopify:admin/products/${productShopifyId}`}
+													url={`https://admin.shopify.com/store/${storeName}/products/${productShopifyId}`}
 													target="_blank"
 													removeUnderline
 												>

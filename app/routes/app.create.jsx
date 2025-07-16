@@ -11,11 +11,12 @@ import {
 	Thumbnail,
 	InlineStack,
 	Text,
+	Listbox,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { useState, useCallback, useEffect } from "react";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useFetcher } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
@@ -29,127 +30,122 @@ export const action = async ({ request }) => {
 	const intent = formData.get("intent");
 
 	if (intent === "search_products") {
+		// TA LOGIQUE DE RECHERCHE - ON N'Y TOUCHE PAS
 		const searchTerm = formData.get("searchTerm");
 		if (!searchTerm) {
 			return json({ products: [] });
 		}
-
 		const productsResponse = await admin.graphql(
 			`#graphql
 		query searchProducts($query: String!) {
 		  products(first: 10, query: $query) {
 			edges {
 			  node {
-				id
-				title
-				handle
-				status
-				featuredImage {
-				  url
-				}
-				variants(first: 1) {
-				  edges {
-					node {
-					  price
-					}
-				  }
-				}
+				id, title, handle, status,
+				featuredImage { url },
+				variants(first: 1) { edges { node { price } } }
 			  }
 			}
 		  }
-		}`
-			, {
-				variables: {
-					query: `title:${searchTerm}* OR tag:${searchTerm}* OR product_type:${searchTerm}*`
-				}
+		}`, {
+			variables: {
+				query: `title:${searchTerm}* OR tag:${searchTerm}* OR product_type:${searchTerm}*`
 			}
+		}
 		);
 		const productsJson = await productsResponse.json();
 		const products = productsJson.data.products.edges.map(edge => edge.node);
 		return json({ products });
 	}
 
+	// --- CORRECTION DE LA LOGIQUE DE CRÉATION ---
 	if (intent === "create_raffle") {
-		const productId = formData.get("productId");
-		const productHandle = formData.get("productHandle");
-		const productTitle = formData.get("productTitle");
-		const quantityAvailable = parseInt(formData.get("quantityAvailable"), 10);
-		const deadline = formData.get("deadline");
-		const isActive = formData.get("isActive") === "true";
+		console.log("\n\n--- DÉBUT DE LA CRÉATION DE LA TOMBOLA ---");
+		const raffleData = Object.fromEntries(formData);
+		console.log("1. Données brutes reçues:", raffleData);
 
-		if (!productId || !productTitle || !quantityAvailable || !deadline) {
-			return json({ errors: { form: "Tous les champs obligatoires doivent être remplis." } }, { status: 400 });
-		}
+		// On prépare les données pour l'API
+		const metaobjectPayload = {
+			type: "raffle_product",
+			fields: [
+				{ key: "product_id", value: raffleData.productId },
+				{ key: "product_handle", value: raffleData.productHandle },
+				{ key: "title", value: raffleData.productTitle },
+				{ key: "quantity_available", value: raffleData.quantityAvailable },
+				{ key: "deadline", value: raffleData.deadline },
+				{ key: "is_active", value: raffleData.isActive },
+			],
+		};
+		console.log("2. Payload envoyé à Shopify:", JSON.stringify(metaobjectPayload, null, 2));
 
 		try {
 			const response = await admin.graphql(
 				`#graphql
 		  mutation createRaffleProduct($metaobject: MetaobjectCreateInput!) {
 			metaobjectCreate(metaobject: $metaobject) {
-			  metaobject {
-				id
-				field(key: "raffle_product.product_title") { value }
-			  }
-			  userErrors {
-				field
-				message
-			  }
+			  metaobject { id }
+			  userErrors { field, message }
 			}
 		  }`,
-				{
-					variables: {
-						metaobject: {
-							type: "raffle_product",
-							fields: [
-								{ key: "product_id", value: productId },
-								{ key: "product_handle", value: productHandle },
-								{ key: "product_title", value: productTitle },
-								{ key: "quantity_available", value: quantityAvailable.toString() },
-								{ key: "deadline", value: deadline },
-								{ key: "is_active", value: isActive.toString() },
-							],
-						},
-					},
-				}
+				{ variables: { metaobject: metaobjectPayload } }
 			);
-			const responseJson = await response.json();
 
-			if (responseJson.data.metaobjectCreate.userErrors.length > 0) {
-				const errors = responseJson.data.metaobjectCreate.userErrors.reduce((acc, err) => {
-					const fieldName = err.field && err.field.length > 1 ? err.field[1] : err.field ? err.field[0] : 'general';
-					acc[fieldName] = err.message;
-					return acc;
-				}, {});
-				return json({ errors }, { status: 400 });
+			const responseJson = await response.json();
+			console.log("3. Réponse COMPLÈTE de Shopify:", JSON.stringify(responseJson, null, 2));
+
+			// Si Shopify nous renvoie des erreurs de validation, on les affiche
+			if (responseJson.data?.metaobjectCreate?.userErrors?.length > 0) {
+				console.error("### ERREUR DE VALIDATION SHOPIFY ###");
+				return json({ errors: responseJson.data.metaobjectCreate.userErrors }, { status: 400 });
 			}
 
+			// Si une autre erreur GraphQL survient
+			if (responseJson.errors) {
+				console.error("### ERREUR GÉNÉRALE GRAPHQL ###");
+				return json({ errors: responseJson.errors }, { status: 500 });
+			}
+
+			console.log("4. Succès ! Redirection...");
 			return redirect("/app/raffles");
+
 		} catch (error) {
-			console.error("Error creating raffle product:", error);
-			return json({ errors: { general: "An unexpected error occurred while creating the raffle." } }, { status: 500 });
+			console.error("5. ERREUR FATALE (CATCH) ###", error);
+			return json({ errors: [{ message: "L'appel a échoué." }] }, { status: 500 });
 		}
 	}
 
-	return json({ message: "Invalid request intent." }, { status: 400 });
+	return json({ message: "Intent invalide." }, { status: 400 });
 };
-
 
 export default function CreateRafflePage() {
 	const formFetcher = useFetcher();
 	const searchFetcher = useFetcher();
-	const submit = useSubmit();
-	const loaderData = useLoaderData();
 	const actionData = formFetcher.data;
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedProduct, setSelectedProduct] = useState(null);
 	const [quantity, setQuantity] = useState("1");
-	const [deadline, setDeadline] = useState(new Date().toISOString().split('T')[0]);
 	const [time, setTime] = useState("23:59");
 	const [isActive, setIsActive] = useState(true);
 
 	const formErrors = actionData?.errors || {};
 	const searchResults = searchFetcher.data?.products || [];
+
+	const [{ month, year }, setDate] = useState({
+		month: new Date().getMonth(),
+		year: new Date().getFullYear(),
+	});
+	const [selectedDate, setSelectedDate] = useState(new Date());
+
+	const handleMonthChange = useCallback(
+		(month, year) => setDate({ month, year }),
+		[],
+	);
+
+	const handleDateChange = useCallback(({ start }) => {
+		setSelectedDate(start);
+		setDate({ month: start.getMonth(), year: start.getFullYear() });
+	}, []);
 
 	const handleSearch = useCallback((value) => {
 		setSearchTerm(value);
@@ -166,36 +162,25 @@ export default function CreateRafflePage() {
 			return;
 		}
 
-		const fullDeadline = `${deadline}T${time}:00Z`;
+		const deadlineWithTime = new Date(selectedDate);
+		const [hours, minutes] = time.split(':');
+		deadlineWithTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
 
 		const formData = new FormData();
 		formData.append("productId", selectedProduct.id);
 		formData.append("productHandle", selectedProduct.handle);
 		formData.append("productTitle", selectedProduct.title);
 		formData.append("quantityAvailable", quantity);
-		formData.append("deadline", fullDeadline);
+		formData.append("deadline", deadlineWithTime.toISOString());
 		formData.append("isActive", isActive.toString());
 		formData.append("intent", "create_raffle");
 
 		formFetcher.submit(formData, { method: "post" });
-	}, [selectedProduct, quantity, deadline, time, isActive, formFetcher]);
+	}, [selectedProduct, quantity, selectedDate, time, isActive, formFetcher]);
 
 	useEffect(() => {
-		if (formFetcher.state === "idle" && formFetcher.data && !formFetcher.data.errors) {
-		}
+		if (formFetcher.state === "idle" && formFetcher.data && !formFetcher.data.errors) { }
 	}, [formFetcher.state, formFetcher.data]);
-
-
-	const [{ month, year }, setDate] = useState({
-		month: new Date().getMonth(),
-		year: new Date().getFullYear(),
-	});
-
-	const handleMonthChange = useCallback(
-		(month, year) => setDate({ month, year }),
-		[]
-	);
-
 
 	return (
 		<Page>
@@ -204,9 +189,7 @@ export default function CreateRafflePage() {
 				<Layout.Section>
 					<Card>
 						<BlockStack gap="300">
-							<Text as="h2" variant="headingMd">
-								1. Select a Shopify product
-							</Text>
+							<Text as="h2" variant="headingMd">1. Select a Shopify product</Text>
 							<TextField
 								label="Search for a product"
 								value={searchTerm}
@@ -222,7 +205,7 @@ export default function CreateRafflePage() {
 							{searchFetcher.state === "loading" ? (
 								<Text>Chargement des produits...</Text>
 							) : searchResults.length > 0 ? (
-								<List type="bullet">
+								<Listbox>
 									{searchResults.map((product) => (
 										<List.Item key={product.id}>
 											<Button
@@ -253,82 +236,42 @@ export default function CreateRafflePage() {
 											</Button>
 										</List.Item>
 									))}
-								</List>
+								</Listbox>
 							) : searchTerm.length > 2 && searchFetcher.state === "idle" ? (
 								<Text>No product found for "{searchTerm}".</Text>
 							) : (
 								<Text>Type at least 3 characters to search for a product.</Text>
 							)}
-
 							{selectedProduct && (
 								<BlockStack gap="100">
-									<Text as="p" variant="bodyMd" fontWeight="bold">
-										Selected product: {selectedProduct.title}
-									</Text>
-									<Text as="p" variant="bodySm">
-										ID: {selectedProduct.id}
-									</Text>
+									<Text as="p" variant="bodyMd" fontWeight="bold">Selected product: {selectedProduct.title}</Text>
+									<Text as="p" variant="bodySm">ID: {selectedProduct.id}</Text>
 								</BlockStack>
 							)}
-							{formErrors.productId && <Text color="critical">{formErrors.productId}</Text>}
 						</BlockStack>
 					</Card>
-
 					<Card>
 						<BlockStack gap="300">
-							<Text as="h2" variant="headingMd">
-								2. Configure the raffle details
-							</Text>
-							<TextField
-								label="Quantity of snowboards (number of winners)"
-								type="number"
-								value={quantity}
-								onChange={setQuantity}
-								min={1}
-								autoComplete="off"
-								error={formErrors.quantityAvailable}
-							/>
-
+							<Text as="h2" variant="headingMd">2. Configure the raffle details</Text>
+							<TextField label="Quantity of snowboards (number of winners)" type="number" value={quantity} onChange={setQuantity} min={1} autoComplete="off" />
 							<Text as="h3" variant="headingSm">Registration deadline</Text>
 							<DatePicker
 								month={month}
 								year={year}
-								onChange={({ end: newDate }) => {
-									setDeadline(newDate.toISOString().split('T')[0]);
-									setDate({ month: newDate.getMonth(), year: newDate.getFullYear() });
-								}}
+								onChange={handleDateChange}
 								onMonthChange={handleMonthChange}
-								selected={{
-									start: new Date(deadline),
-									end: new Date(deadline),
-								}}
+								selected={selectedDate}
 							/>
-							<TextField
-								label="Deadline time (HH:MM)"
-								type="time"
-								value={time}
-								onChange={setTime}
-								autoComplete="off"
-								error={formErrors.deadline}
-							/>
-
+							<TextField label="Deadline time (HH:MM)" type="time" value={time} onChange={setTime} autoComplete="off" />
 							<ChoiceList
 								title="Raffle status"
-								choices={[
-									{ label: "Active", value: "true" },
-									{ label: "Inactive", value: "false" },
-								]}
+								choices={[{ label: "Active", value: "true" }, { label: "Inactive", value: "false" }]}
 								selected={[`${isActive}`]}
 								onChange={(value) => setIsActive(value[0] === "true")}
-								error={formErrors.isActive}
 							/>
 						</BlockStack>
 					</Card>
-
-					<Button primary onClick={handleSubmit} loading={formFetcher.state === "submitting"}>
-						Create the raffle
-					</Button>
-					{formErrors.general && <Text color="critical">{formErrors.general}</Text>}
+					<Button primary onClick={handleSubmit} loading={formFetcher.state === "submitting"}>Create the raffle</Button>
 				</Layout.Section>
 			</Layout>
 		</Page>
